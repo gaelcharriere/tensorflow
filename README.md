@@ -1,6 +1,6 @@
 # tensorflow
 
-gRPC client detecting only the following objects on images: (person=1, bicycle=2, car=3, motorcycle=4, bus=6, truck=8). The other objects detected by teh model are filtered out.
+gRPC client detecting only the following objects on images: (person=1, bicycle=2, car=3, motorcycle=4, bus=6, truck=8). The other objects detected by the model are filtered out.
 Images are loaded locally and sent to the gRPC server to be analyzed. The gRPC server returns an output containing:
 * classes: The type of image detected. Classes are used to filter out the objects that we are not interested in.
 * boxes: The box coordinates surrounding the object used by the client to draw the boxes around the detected object.
@@ -13,3 +13,21 @@ docker run --rm -p 8500:8500 --mount type=bind,source=$(pwd),target=$(pwd) \
 ```
 
 ![Image of Tensorflow-Architecture](https://github.com/gaelcharriere/images/blob/main/tensorflow-architecture.jpg)
+
+# usage
+```
+grpc-mqtt-start.py
+  --mqtt_host MQTT broker host name
+  --mqtt_port MQTT broker port
+  --mqtt_user MQTT broker username
+  --mqtt_pwd MQTT broker password
+  --db_host InfluxDB host name
+  --db_port InfluxDB host port
+  --db_user InfluxDB username
+  --db_pwd InfluxDB password
+  --db_tf InfluxDB tensorflow database name
+  --tf_host Tensorflow server host
+  --tf_port Tensorflow server port
+  --model The tensorflow trained model name
+  --config Configuration file
+```
