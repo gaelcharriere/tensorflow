@@ -12,4 +12,4 @@ docker run --rm -p 8500:8500 --mount type=bind,source=$(pwd),target=$(pwd) \
 -e MODEL_BASE_PATH=$(pwd)/models -e MODEL_NAME=efficientdet_d0 -t tensorflow/serving 
 ```
 
-![Image of Tensorflow-Architecture](https://github.com/gaelcharriere/images/tensorflow-architecture.jpg)
+![Image of Tensorflow-Architecture](https://github.com/gaelcharriere/images/blob/main/tensorflow-architecture.jpg)
