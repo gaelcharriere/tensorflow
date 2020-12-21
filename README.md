@@ -14,6 +14,8 @@ docker run --rm -p 8500:8500 --mount type=bind,source=$(pwd),target=$(pwd) \
 
 ![Image of Tensorflow-Architecture](https://github.com/gaelcharriere/images/blob/main/tensorflow-architecture.jpg)
 
+The coordinates of each object detected are saved into an influxdb database to be sure we do not detect the same object twice.
+
 # usage
 ```
 grpc-mqtt-start.py
