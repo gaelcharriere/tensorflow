@@ -11,3 +11,5 @@ gRPC client connects to a gRPC ModelServer at 0.0.0.0:8500. The gRPC ModelServer
 docker run --rm -p 8500:8500 --mount type=bind,source=$(pwd),target=$(pwd) \ 
 -e MODEL_BASE_PATH=$(pwd)/models -e MODEL_NAME=efficientdet_d0 -t tensorflow/serving 
 ```
+
+![Image of Tensorflow-Architecture](https://github.com/gaelcharriere/images/tensorflow-architecture.jpg)
