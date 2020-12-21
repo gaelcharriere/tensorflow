@@ -1,0 +1,47 @@
+
+{
+  "camera": [
+    {
+      "name": "cave", 
+      "id": "1" ,
+      "url": "http://10.8.8.225/snap.jpeg",
+      "classes": [1],
+      "score": 0.3
+    },
+    {
+      "name": "lake-right", 
+      "id": "2",
+      "url": "http://10.8.8.229/snap.jpeg",
+      "classes": [1],
+      "score": 0.3
+    },
+        {
+      "name": "lake-left", 
+      "id": "3",
+      "url": "http://10.8.8.230/snap.jpeg",
+      "classes": [1],
+      "score": 0.3
+    },
+        {
+      "name": "chemin", 
+      "id": "4",
+      "url": "http://10.8.8.231/snap.jpeg",
+      "classes": [1,2,3,4,6,8],
+      "score": 0.4
+    },
+        {
+      "name": "couvert", 
+      "id": "5",
+      "url": "http://10.8.8.232/snap.jpeg",
+      "classes": [1,2,3,4,6,8],
+      "score": 0.3
+    },
+        {
+      "name": "doorbird", 
+      "id": "6",
+      "url": "http://10.8.8.233/bha-api/image.cgi?http-user=ghfuvl0003&http-password=4SSrxU96fv",
+      "classes": [1,2,3,4,6,8],
+      "score": 0.45
+    }
+  ]
+}

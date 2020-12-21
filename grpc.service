@@ -1,0 +1,12 @@
+[Unit]
+Description=gRPC MQTT Client Service for Tensorflow-Serving
+After=network.target
+
+[Service]
+User=root
+Restart=always
+ExecStart=/usr/bin/python3 /opt/opshome/grpc/grpc-mqtt-start.py --config /opt/opshome/opshome.conf 
+ExecStop=/usr/bin/python3 /opt/opshome/grpc/grpc-mqtt-stop.py --config /opt/opshome/opshome.conf
+
+[Install]
+WantedBy=multi-user.target
