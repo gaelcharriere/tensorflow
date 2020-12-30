@@ -673,7 +673,7 @@ if __name__ == '__main__':
     parser.add_argument('--tf_port', default=8500, help='Tensorflow server port number', type=int)
     parser.add_argument('--model', default='efficientdet', help='model name', type=str)
     parser.add_argument('--signature_name', default='serving_default', help='Signature name of saved TF model', type=str)
-    parser.add_argument('--config', help='OpsHome configuration file', type=str)
+    parser.add_argument('--config', help='Configuration file', type=str)
 
     # parse command line
     args = parser.parse_args()

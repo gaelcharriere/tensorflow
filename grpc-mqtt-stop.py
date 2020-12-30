@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--mqtt_port', default=1883, help='MQTT broker port')
     parser.add_argument('--mqtt_user', help='MQTT broker username')
     parser.add_argument('--mqtt_pwd', help='MQTT broker password')
-    parser.add_argument('--config', help='OpsHome configuration file', type=str)
+    parser.add_argument('--config', help='Configuration file', type=str)
 
     # parse command line
     args = parser.parse_args()
