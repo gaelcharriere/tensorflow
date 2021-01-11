@@ -362,7 +362,6 @@ def insert_obj_db(obj, name, trigger):
 #
 # Args:
 #  objclass: the class of the new object to find
-#  score: the score of the new object to find
 #  ymin: the ymin of the new object to find
 #  xmin: the xmin of the new object to find
 #  ymax: the ymax of the new object to find
@@ -375,12 +374,6 @@ def find_obj(objclass, score, ymin, xmin, ymax, xmax, objects):
   # loop over the objects saved into the db
   for obj in objects:
     if obj['class'] != objclass:
-      continue
-    if not math.isclose(float(score), float(obj['score']), abs_tol= 0.1):
-      # 10% difference allowed for score
-      print(score)
-      print(obj['score'])
-      print('different score')
       continue
     if not math.isclose(float(ymin), float(obj['ymin']), abs_tol= 0.02):
       print(ymin)
