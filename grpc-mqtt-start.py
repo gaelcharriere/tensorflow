@@ -430,7 +430,7 @@ def new_obj_found(last, new):
     return True
   
   # first compare the number of objects found
-  if len(new[2]) != len(last):
+  if len(new[2]) > len(last):
     return True
 
   # loop over new objects
