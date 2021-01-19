@@ -321,10 +321,10 @@ def save_img(img_as_np, name):
   out = os.path.join(img_path, name + '.jpg')
   img.save(out, format="JPEG", quality=100)
 
-# ### Insert object into database
+# ### Insert objects into database
 #
 # Args:
-#  obj: the new object to insert into the database
+#  obj: the new objects to insert into the database
 #  name: the camera name
 #  trigger: true if the object is linked with an alert, false otherwise
 def insert_obj_db(obj, name, trigger):
@@ -492,26 +492,27 @@ def get_last_obj(name):
 #  min: the interval of time in minutes from now
 # Return: true if the alert is triggered, false otherwise
 def trigger_alert(name, threshold, min):
-  # get number of events from the same image during the last interval
-  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND trigger='True' AND time > now()-" + str(min) + "m;"
+  # get number of person events from the same image during the last interval
+  # we limit only the person events (class=1)
+  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND class='1' AND trigger='True' AND time > now()-" + str(min) + "m;"
   rs = dbclient.query(query)
   if len(rs) > 0:
     # result set not empty
     count = list(rs.get_points(measurement='image'))[0]['count']
     if count > threshold:
-      print('events already detected above threshold: ',count,'/5 (last hour)')
-      logging.info("events already detected above threshold: %d/5 (last hour)", count)
+      print('person events already detected above threshold: ',count,'/5 (last hour)')
+      logging.info("person events already detected above threshold: %d/5 (last hour)", count)
       return False
 
-  # check if a detection alert was already triggered during the last minute
-  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND trigger='True' AND time > now()-1m;"
+  # check if a person detection alert was already triggered during the last minute
+  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND class='1' AND trigger='True' AND time > now()-1m;"
   rs = dbclient.query(query)
   if len(rs) > 0:
     # result set not empty
     count = list(rs.get_points(measurement='image'))[0]['count']
     if count > 0:
-      print('events already detected above threshold: ',count,'/1 (last min)')
-      logging.info("events already detected above threshold: %d/1 (last min)", count)
+      print('person events already detected above threshold: ',count,'/1 (last min)')
+      logging.info("person events already detected above threshold: %d/1 (last min)", count)
       return False
   
   # trigger alert
