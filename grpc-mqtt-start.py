@@ -118,7 +118,7 @@ def on_connect(client, userdata, flags, rc):
 
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
-    client.subscribe("tensorflow")
+    client.subscribe("tensorflow/#")
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
@@ -138,11 +138,19 @@ def on_message(client, userdata, msg):
     manager = multiprocessing.Manager()
     return_dict = manager.dict()
     jobs = []
+
+    # trigger can be forced if we want to send an alert
+    # after object detection even if we are above the usual thresholds
+    # tensorflow/force
+    force = False
+    if '/' in msg.topic and msg.topic.split('/',1)[1] == 'force':
+      force = True
+
     if payload == 'all':
       # load all images once asyn
       for c in cams['camera']:
         # define run detection process per image
-        p = multiprocessing.Process(target=run_detection, args=(stub, request, c['url'], c['name'], c['classes'], c['score'], return_dict))
+        p = multiprocessing.Process(target=run_detection, args=(stub, request, c['url'], c['name'], c['classes'], c['score'], force, return_dict))
         jobs.append(p)
         # start the running detection process
         p.start()
@@ -151,7 +159,7 @@ def on_message(client, userdata, msg):
       for c in cams['camera']:
         if c['name'] == payload:
           # define run detection process per image
-          p = multiprocessing.Process(target=run_detection, args=(stub, request, c['url'], c['name'],c['classes'], c['score'], return_dict))
+          p = multiprocessing.Process(target=run_detection, args=(stub, request, c['url'], c['name'],c['classes'], c['score'], force, return_dict))
           jobs.append(p)
           # start the running detection process
           p.start()
@@ -490,29 +498,35 @@ def get_last_obj(name):
 #  name: the name of the camera
 #  threshold: the max number of alerts allowed per interval of time
 #  min: the interval of time in minutes from now
+#  force: trigger the alert anyway if force is true
 # Return: true if the alert is triggered, false otherwise
-def trigger_alert(name, threshold, min):
-  # get number of person events from the same image during the last interval
+def trigger_alert(name, threshold, min, force):
+  if force:
+    # alert trigger forced
+    return True
+  # get number of events from the same image during the last interval
   # we limit only the person events (class=1)
-  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND class='1' AND trigger='True' AND time > now()-" + str(min) + "m;"
+  # query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND class='1' AND trigger='True' AND time > now()-" + str(min) + "m;"
+  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND trigger='True' AND time > now()-" + str(min) + "m;"
   rs = dbclient.query(query)
   if len(rs) > 0:
     # result set not empty
     count = list(rs.get_points(measurement='image'))[0]['count']
     if count > threshold:
-      print('person events already detected above threshold: ',count,'/5 (last hour)')
-      logging.info("person events already detected above threshold: %d/5 (last hour)", count)
+      print('events already detected above threshold: ',count,'/5 (last hour)')
+      logging.info("events already detected above threshold: %d/5 (last hour)", count)
       return False
 
-  # check if a person detection alert was already triggered during the last minute
-  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND class='1' AND trigger='True' AND time > now()-1m;"
+  # check if a event detection alert was already triggered during the last minute
+  # query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND class='1' AND trigger='True' AND time > now()-1m;"
+  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND trigger='True' AND time > now()-1m;"
   rs = dbclient.query(query)
   if len(rs) > 0:
     # result set not empty
     count = list(rs.get_points(measurement='image'))[0]['count']
     if count > 0:
-      print('person events already detected above threshold: ',count,'/1 (last min)')
-      logging.info("person events already detected above threshold: %d/1 (last min)", count)
+      print('events already detected above threshold: ',count,'/1 (last min)')
+      logging.info("events already detected above threshold: %d/1 (last min)", count)
       return False
   
   # trigger alert
@@ -531,9 +545,10 @@ def trigger_alert(name, threshold, min):
 #   name: the name of the camera
 #   classes: the list of classes to look for
 #   min_score: the minimum score
+#   force: force alert triggering if true
 #   return_dict: return values
 #
-def run_detection(stub, request, image, name, classes, min_score, return_dict):
+def run_detection(stub, request, image, name, classes, min_score, force, return_dict):
   # read image into numpy array
   img  = load_image_into_numpy_array(image)
 
@@ -558,7 +573,7 @@ def run_detection(stub, request, image, name, classes, min_score, return_dict):
     # based on previous events already detected
     # more than 5 events during last hour: alert = false
     # already an event last minute: alert = false
-    alert = trigger_alert(name, 5, 60)
+    alert = trigger_alert(name, 5, 60, force)
 
     # print number of objects found
     print("Found",len(obj[2]),"objects in",name)
