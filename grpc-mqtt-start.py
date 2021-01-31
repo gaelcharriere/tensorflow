@@ -57,6 +57,8 @@
 #           { "size": "100", "name": "" }
 #  ]}}}
 from __future__ import print_function
+from datetime import datetime
+from influxdb import InfluxDBClient
 import argparse
 import configparser
 import logging
@@ -64,29 +66,28 @@ import multiprocessing
 import numpy as np
 import time
 import math
-from datetime import datetime
-
-import tensorflow as tf
 import grpc
 import os
 import json
+import tensorflow as tf
 import paho.mqtt.client as mqtt
 from PIL import Image
 from six import BytesIO
 from six.moves.urllib.request import urlopen
-
 from tensorflow_serving.apis import predict_pb2
 from tensorflow_serving.apis import prediction_service_pb2_grpc
-
 # label classes and draw boxes helper
 from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as viz_utils
 
-from influxdb import InfluxDBClient
+# Max alerts per camera per time interval
+HIGH_INTERVAL = 60  # 1hour
+LOW_INTERVAL = 1    # 1min
+MAX_PER_HI = 5      # max 5 alerts per hour (high interval)
+MAX_PER_LI = 1      # max 1 alert per min (low interval)
 
 # Get the absolute directory of the current script
 dir_path = os.path.dirname(os.path.realpath(__file__) )
-
 # tgt image directory for processed images
 # object detected surrounded by boxes
 img_path = '/docker/home-assistant/config/tmp'
@@ -139,18 +140,22 @@ def on_message(client, userdata, msg):
     return_dict = manager.dict()
     jobs = []
 
-    # trigger can be forced if we want to send an alert
-    # after object detection even if we are above the usual thresholds
-    # tensorflow/force
+    # trigger alert can be force/skip after new object detection
+    # tensorflow/force: bypass alert limitation (1 per minute, 5 per hour)
+    # tensorflow/skip: prevent alerting after new object detection
     force = False
-    if '/' in msg.topic and msg.topic.split('/',1)[1] == 'force':
-      force = True
+    skip = False
+    if '/' in msg.topic:
+      if msg.topic.split('/',1)[1] == 'force':
+        force = True
+      elif msg.topic.split('/',1)[1] == 'skip':
+        skip = True
 
     if payload == 'all':
       # load all images once asyn
       for c in cams['camera']:
         # define run detection process per image
-        p = multiprocessing.Process(target=run_detection, args=(stub, request, c['url'], c['name'], c['classes'], c['score'], force, return_dict))
+        p = multiprocessing.Process(target=run_detection, args=(stub, request, c['url'], c['name'], c['classes'], c['score'], force, skip, return_dict))
         jobs.append(p)
         # start the running detection process
         p.start()
@@ -159,7 +164,7 @@ def on_message(client, userdata, msg):
       for c in cams['camera']:
         if c['name'] == payload:
           # define run detection process per image
-          p = multiprocessing.Process(target=run_detection, args=(stub, request, c['url'], c['name'],c['classes'], c['score'], force, return_dict))
+          p = multiprocessing.Process(target=run_detection, args=(stub, request, c['url'], c['name'],c['classes'], c['score'], force, skip, return_dict))
           jobs.append(p)
           # start the running detection process
           p.start()
@@ -496,37 +501,41 @@ def get_last_obj(name):
 #
 # Args:
 #  name: the name of the camera
-#  threshold: the max number of alerts allowed per interval of time
-#  min: the interval of time in minutes from now
+#  high_interval: high interval of time - 1hour
+#  low_interval: low interval of time - 1min
+#  max_per_hi: max alerts per high interval of time
+#  max_per_li: max alerts per low interval of time
 #  force: trigger the alert anyway if force is true
+#  skip: skip alert if skip is true
 # Return: true if the alert is triggered, false otherwise
-def trigger_alert(name, threshold, min, force):
+def trigger_alert(name, high_interval, low_interval, max_per_hi, max_per_li, force, skip):
   if force:
     # alert trigger forced
     return True
-  # get number of events from the same image during the last interval
-  # we limit only the person events (class=1)
-  # query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND class='1' AND trigger='True' AND time > now()-" + str(min) + "m;"
-  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND trigger='True' AND time > now()-" + str(min) + "m;"
+  if skip:
+    # alert skipped
+    return False
+
+  # get number of events triggered from the same image during high interval
+  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND trigger='True' AND time > now()-" + str(high_interval) + "m;"
   rs = dbclient.query(query)
   if len(rs) > 0:
     # result set not empty
     count = list(rs.get_points(measurement='image'))[0]['count']
-    if count > threshold:
-      print('events already detected above threshold: ',count,'/5 (last hour)')
-      logging.info("events already detected above threshold: %d/5 (last hour)", count)
+    if count >= max_per_hi:
+      print('events already detected above threshold: ',count,'/',max_per_hi,' (last ',high_interval,'min)')
+      logging.info("events already detected above threshold: %d/%d (last %dmin)", count, max_per_hi, high_interval)
       return False
 
-  # check if a event detection alert was already triggered during the last minute
-  # query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND class='1' AND trigger='True' AND time > now()-1m;"
-  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND trigger='True' AND time > now()-1m;"
+  # check if a event detection alert was already triggered during the low interval
+  query = "SELECT COUNT(DISTINCT(value)) FROM image WHERE camera='" + name + "' AND trigger='True' AND time > now()-" + str(low_interval) + "m;"
   rs = dbclient.query(query)
   if len(rs) > 0:
     # result set not empty
     count = list(rs.get_points(measurement='image'))[0]['count']
-    if count > 0:
-      print('events already detected above threshold: ',count,'/1 (last min)')
-      logging.info("events already detected above threshold: %d/1 (last min)", count)
+    if count >= max_per_li:
+      print('events already detected above threshold: ',count,'/',max_per_li,'(last ',low_interval,'min)')
+      logging.info("events already detected above threshold: %d/%d (last %dmin)", count, max_per_li, low_interval)
       return False
   
   # trigger alert
@@ -546,9 +555,10 @@ def trigger_alert(name, threshold, min, force):
 #   classes: the list of classes to look for
 #   min_score: the minimum score
 #   force: force alert triggering if true
+#   skip: skip alert triggering if true
 #   return_dict: return values
 #
-def run_detection(stub, request, image, name, classes, min_score, force, return_dict):
+def run_detection(stub, request, image, name, classes, min_score, force, skip, return_dict):
   # read image into numpy array
   img  = load_image_into_numpy_array(image)
 
@@ -573,7 +583,7 @@ def run_detection(stub, request, image, name, classes, min_score, force, return_
     # based on previous events already detected
     # more than 5 events during last hour: alert = false
     # already an event last minute: alert = false
-    alert = trigger_alert(name, 5, 60, force)
+    alert = trigger_alert(name, HIGH_INTERVAL, LOW_INTERVAL, MAX_PER_HI, MAX_PER_LI, force, skip)
 
     # print number of objects found
     print("Found",len(obj[2]),"objects in",name)
