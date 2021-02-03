@@ -454,7 +454,7 @@ def new_obj_found(last, new):
 
     # let's try to identify
     # if the object was already discovered.
-    # An object with same class, similar score, xmax, xmin, ymax and ymin
+    # An object with same class, similar xmax, xmin, ymax and ymin
     # is considered as identical
     if not find_obj(
       str(new[1][i]),
